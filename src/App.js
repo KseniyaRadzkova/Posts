@@ -9,21 +9,30 @@ import { usePosts } from './hooks/usePosts';
 import PostService from './API/PostService';
 import Loader from './components/UI/Loader/Loader.jsx'
 import { useFetching } from './hooks/useFetching';
+import { getPageCount } from './utils/pages';
+import { getPagesArray } from './utils/pages'
 
 
 function App() {
   const [posts, setPosts] = useState([])
   const [filter, setFilter] = useState({ sort: '', query: '' })
   const [modal, setModal] = useState(false)
+  const [totalPages, setTotalPages] = useState(0)
+  const [limit, setLimit] = useState(10)
+  const [page, setPage] = useState(1)
   const sortedAndSearchedPosts = usePosts(posts, filter.sort, filter.query)
+  let pagesArray = getPagesArray(totalPages)
+
   const [fetchPosts, isPostsLoading, postError] = useFetching(async () => {
-    const posts = await PostService.getAll();
-    setPosts(posts)
+    const response = await PostService.getAll(limit, page);
+    setPosts(response.data)
+    const totalCount = response.headers['x-total-count']
+    setTotalPages(getPageCount(totalCount, limit))
   })
 
   useEffect(() => {
     fetchPosts()
-  }, [])
+  }, [page])
 
   const createPost = (newPost) => {
     setPosts([...posts, newPost])
@@ -32,6 +41,10 @@ function App() {
 
   const removePost = (post) => {
     setPosts(posts.filter(p => p.id !== post.id))
+  }
+
+  const changePage = (page) => {
+    setPage(page)
   }
 
   return (
@@ -47,16 +60,26 @@ function App() {
         filter={filter}
         setFilter={setFilter}
       />
-      {postError && 
-      <h1>Произошла ошибка ${postError}</h1>
-    }
+      {postError &&
+        <h1>Произошла ошибка ${postError}</h1>
+      }
       {isPostsLoading
         ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: '50px' }}><Loader /></div>
         : <PostList remove={removePost} posts={sortedAndSearchedPosts} title="Список постов 1" />
       }
-
+      <div className='page__wrapper'>
+        {pagesArray.map(p =>
+          <span
+          onClick={() => changePage(p)}
+          key={p}
+          className={page === p ? 'page page__current' : 'page'}>
+            {p}
+          </span>)}
+      </div>
     </div>
   );
 }
 
 export default App;
+
+
